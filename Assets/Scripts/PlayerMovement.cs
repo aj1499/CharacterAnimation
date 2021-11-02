@@ -12,19 +12,32 @@ public class PlayerMovement : MonoBehaviour
 	[SerializeField] private float rotationDegreePerSecond = 120f;
 	[SerializeField] private float locomotionThreshold = 0.2f;
 	[SerializeField] private float speedDampTime = 0.05f;
+	[SerializeField] private float jumpMultiplier = 1f;
+	[SerializeField] private float jumpDist = 1f;
+	[SerializeField] private CapsuleCollider capCollider;
 	
 	private Animator anim;
 	private AnimatorStateInfo stateInfo;
+	private AnimatorStateInfo transInfo;
 	
 	private float speed = 0.0f;
 	private float direction = 0.0f;
 	private float h = 0.0f;
 	private float v = 0.0f;
 	private float charAngle = 0.0f;
+	private float capsuleHeight;	
+	
+	private const float SPRINT_SPEED = 2.0f;	
+	private const float SPRINT_FOV = 75.0f;
+	private const float NORMAL_FOV = 60.0f;
 	
     private int hashLocomotionId = 0;
 	private int hashLocomotionPivotLId = 0;
 	private int hashLocomotionPivotRId = 0;	
+	private int hashLocomotionPivotLTransId = 0;	
+	private int hashLocomotionPivotRTransId = 0;	
+	private int hashLocomotionJump = 0;
+	private int hashIdleJump = 0;
 	
 	#endregion
 	
@@ -38,6 +51,8 @@ public class PlayerMovement : MonoBehaviour
     void Start()
     {
         anim = GetComponentInChildren<Animator>();
+		capCollider = GetComponent<CapsuleCollider>();
+		capsuleHeight = capCollider.height;
 		
 		if (anim.layerCount >= 2) {
 			anim.SetLayerWeight(1, 1);
@@ -46,6 +61,8 @@ public class PlayerMovement : MonoBehaviour
 		hashLocomotionId = Animator.StringToHash("Base Layer.Locomotion");
 		hashLocomotionPivotLId = Animator.StringToHash("Base Layer.LocomotionPivotL");
 		hashLocomotionPivotRId = Animator.StringToHash("Base Layer.LocomotionPivotR");
+		hashLocomotionPivotLTransId = Animator.StringToHash("Base Layer.Locomotion -> Base Layer.LocomotionPivotL");
+		hashLocomotionPivotRTransId = Animator.StringToHash("Base Layer.Locomotion -> Base Layer.LocomotionPivotR");
     }
 
     // Update is called once per frame
@@ -54,6 +71,11 @@ public class PlayerMovement : MonoBehaviour
 		if (anim)
 		{
 			stateInfo = anim.GetCurrentAnimatorStateInfo(0);
+			transInfo = anim.GetCurrentAnimatorStateInfo(0);
+			
+			
+			anim.SetBool("Jump", Input.GetButton("Jump"));
+		
 			
 			// Pull values from controller/keyboard
 			v = Input.GetAxis("Vertical");
@@ -82,7 +104,6 @@ public class PlayerMovement : MonoBehaviour
 				anim.SetFloat("Angle", 0f);
 			}
 			
-			Debug.Log(isInPivot());
 		}
     }
 	
@@ -94,6 +115,17 @@ public class PlayerMovement : MonoBehaviour
 			Vector3 rotationAmount = Vector3.Lerp(Vector3.zero, new Vector3(0f, rotationDegreePerSecond * (h < 0f ? -1f : 1f), 0f), Mathf.Abs(h));
 			Quaternion deltaRotation = Quaternion.Euler(rotationAmount * Time.deltaTime);
 			this.transform.rotation = (this.transform.rotation * deltaRotation);
+		}
+		
+		if (IsInJump())
+		{
+			float oldY = transform.position.y;
+			transform.Translate(Vector3.up * jumpMultiplier * anim.GetFloat("JumpCurve"));
+			if (IsInLocomotionJump())
+			{
+				transform.Translate(Vector3.forward * Time.deltaTime * jumpDist);
+			}
+			capCollider.height = capsuleHeight + (anim.GetFloat("CapsuleCurve") * 0.5f);
 		}
 	}
 	
@@ -143,7 +175,25 @@ public class PlayerMovement : MonoBehaviour
 	
 	public bool isInPivot()
 	{
-		return stateInfo.nameHash == hashLocomotionPivotLId || stateInfo.nameHash == hashLocomotionPivotRId;
+		return stateInfo.nameHash == hashLocomotionPivotLId || 
+			stateInfo.nameHash == hashLocomotionPivotRId || 
+			transInfo.nameHash == hashLocomotionPivotLTransId || 
+			transInfo.nameHash ==hashLocomotionPivotRTransId;
+	}
+	
+	public bool IsInJump()
+	{
+		return (IsInIdleJump() || IsInLocomotionJump());
+	}
+	
+	public bool IsInIdleJump()
+	{
+		return stateInfo.nameHash == hashIdleJump;
+	}
+	
+	public bool IsInLocomotionJump()
+	{
+		return stateInfo.nameHash == hashLocomotionJump;
 	}
 	
 	#endregion
