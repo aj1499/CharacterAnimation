@@ -59,6 +59,8 @@ public class CameraController : MonoBehaviour
 		// Debug.DrawRay(followXform.position, -1f * followXform.forward * distanceAway, Color.blue);
 		Debug.DrawRay(followXform.position, targetPosition, Color.magenta);
 		
+		compensateForWalls(characterOffset, ref targetPosition);
+		
 		// making a smooth transition from it's current position a the position it wants to be in
 		smoothPosition(this.transform.position, targetPosition);
 		
@@ -71,5 +73,18 @@ public class CameraController : MonoBehaviour
 		// Making a smooth transition between camera's current position and the position it wants to be in
 		this.transform.position = Vector3.SmoothDamp(fromPos, toPos, ref velocityCamSmooth, camSmoothDampTime);
 	}
+	
+	private void compensateForWalls(Vector3 fromObject, ref Vector3 toTarget)
+	{
+		Debug.DrawLine(fromObject, toTarget, Color.cyan);
+		// compensate for walls between camera
+		RaycastHit wallHit = new RaycastHit();
+		if (Physics.Linecast(fromObject, toTarget, out wallHit))
+		{
+			Debug.DrawLine(wallHit.point, Vector3.left, Color.red);
+			toTarget = new Vector3(wallHit.point.x, toTarget.y, wallHit.point.z);
+		}
+	}
+	
 	#endregion
 }
